@@ -7,6 +7,7 @@ import scala.reflect.ClassTag
 import org.apache.spark.rdd.PairRDDFunctions
 import org.apache.spark.mllib.rdd.MLPairRDDFunctions._
 import scala.math.Ordering
+import ScalarMatrixOps._
 import breeze.linalg._
 import breeze.numerics._
 
@@ -85,7 +86,7 @@ class XCLiMF[T: ClassTag](
     }
   }
 
-  def updateOneUser(user: T, iteraction: Iteractions.Iteraction[T]) = {
+  protected[xclimf] def updateOneUser(user: T, iteraction: Iteractions.Iteraction[T]):Iteractions.Iteraction[T] = {
     val N = iteraction.itemNames.size
     val fmiv = iteraction.itemFactors.*(iteraction.userFactors).toDenseMatrix
     val fmi = tile(fmiv, N, 1)
@@ -97,7 +98,7 @@ class XCLiMF[T: ClassTag](
     val ymk = ymi.t
     val ymitile = tile(ymi, fmi_fmk.rows, 1)
     val ymktile = tile(ymk, 1, fmk_fmi.cols)
-    val g_fmi = sigmoid(-1.0 * fmiv)
+    val g_fmi = sigmoid(mul(-1.0, fmiv))
 
     //items partial increments
     val div1 = sigdivision(ymktile, fmk_fmi)
@@ -105,8 +106,9 @@ class XCLiMF[T: ClassTag](
     val bimul = ymktile.*:*(dg(fmi_fmk).*:*(div1 - div2))
     val brackets_i = g_fmi + sum(bimul(::, *))
     val ymibru = ymi.*:*(brackets_i).t.*(iteraction.userFactors.toDenseMatrix)
-    val di = gamma * (ymibru - lambda * iteraction.itemFactors)
+    val di = mul(gamma, (ymibru - mul(lambda, iteraction.itemFactors)))
 
+    //user partial increment
     val top = ymktile.*:*(dg(fmk_fmi))
     val bot = invsig(ymktile, fmk_fmi)
     val N2 = N * N
@@ -115,15 +117,15 @@ class XCLiMF[T: ClassTag](
     val top_bot_sub = tile(top_bot, 1, sub.cols).*:*(sub)
     val brackets_uk = tensor3dsum(N, top_bot_sub)
     val brackets_ui = tile(g_fmi.t, 1, dims).*:*(iteraction.itemFactors)
-
-    println("\n", brackets_uk)
-    println("\n", brackets_ui)
-
     val brackets_u = brackets_ui + brackets_uk
+    val du1 = iteraction.itemRatings.t * brackets_u
+    val bias = mul(lambda, iteraction.userFactors.toDenseMatrix)
+    val du2 = mul(gamma, du1.inner.toDenseMatrix - bias)
 
-    println("\n", brackets_u)
+    //user factor summed
+    val userFactors = iteraction.userFactors.toDenseMatrix + du2
 
-    Iteractions.Iteraction[T](iteraction.userFactors, iteraction.itemNames, iteraction.itemRatings, di)
+    Iteractions.Iteraction[T](userFactors.toDenseVector, iteraction.itemNames, iteraction.itemRatings, di)
   }
 
   private def factorsubtract(N:Int, N2:Int, factors: DenseMatrix[Double]): DenseMatrix[Double] = {
@@ -137,11 +139,11 @@ class XCLiMF[T: ClassTag](
   }
 
   private def sigdivision(ymx: DenseMatrix[Double], fmx_fmy: DenseMatrix[Double]): DenseMatrix[Double] = {
-    1.0 / invsig(ymx, fmx_fmy)
+    div(1.0, invsig(ymx, fmx_fmy))
   }
 
   private def invsig(ymx: DenseMatrix[Double], fmx_fmy: DenseMatrix[Double]): DenseMatrix[Double] = {
-    1.0 - ( ymx.*:*( sigmoid(fmx_fmy) ) )
+    dif(1.0, ( ymx.*:*( sigmoid(fmx_fmy) ) ) )
   }
 
   private def tensor3dsum(N: Int, matrix: DenseMatrix[Double]):DenseMatrix[Double] = {
@@ -158,6 +160,6 @@ class XCLiMF[T: ClassTag](
   }
 
   private def dg(x:DenseMatrix[Double]): DenseMatrix[Double] = {
-    exp(x)/pow((exp(x) + 1.0), 2)
+    exp(x) / pow(add(1.0, exp(x)), 2)
   }
 }
