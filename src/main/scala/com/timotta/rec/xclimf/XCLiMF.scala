@@ -100,32 +100,61 @@ class XCLiMF[T: ClassTag](
     val g_fmi = sigmoid(-1.0 * fmiv)
 
     //items partial increments
-    val div1 = 1.0/(1.0 - (ymktile.*:*(sigmoid(fmk_fmi))))
-    val div2 = 1.0/(1.0 - (ymitile.*:*(sigmoid(fmi_fmk))))
+    val div1 = sigdivision(ymktile, fmk_fmi)
+    val div2 = sigdivision(ymitile, fmi_fmk)
     val bimul = ymktile.*:*(dg(fmi_fmk).*:*(div1 - div2))
     val brackets_i = g_fmi + sum(bimul(::, *))
     val ymibru = ymi.*:*(brackets_i).t.*(iteraction.userFactors.toDenseMatrix)
     val di = gamma * (ymibru - lambda * iteraction.itemFactors)
 
     val top = ymktile.*:*(dg(fmk_fmi))
-    val bot = 1.0 - (ymktile.*:*(sigmoid(fmk_fmi)))
-
+    val bot = invsig(ymktile, fmk_fmi)
     val N2 = N * N
+    val sub = factorsubtract(N, N2, iteraction.itemFactors)
+    val top_bot = top./:/(bot).reshape(N2, 1)
+    val top_bot_sub = tile(top_bot, 1, sub.cols).*:*(sub)
+    val brackets_uk = tensor3dsum(N, top_bot_sub)
+    val brackets_ui = tile(g_fmi.t, 1, dims).*:*(iteraction.itemFactors)
 
+    println("\n", brackets_uk)
+    println("\n", brackets_ui)
+
+    val brackets_u = brackets_ui + brackets_uk
+
+    println("\n", brackets_u)
+
+    Iteractions.Iteraction[T](iteraction.userFactors, iteraction.itemNames, iteraction.itemRatings, di)
+  }
+
+  private def factorsubtract(N:Int, N2:Int, factors: DenseMatrix[Double]): DenseMatrix[Double] = {
     //Correct code if Breeze reshape was working properly:
     //  in breeze: val vis = tile(iteraction.itemFactors, 1, N).reshape(N2, dims)
     //In numpy works:
     //  in numpy:  np.tile(viks, (1, N)).reshape(N2, D)
-    val vis = tile(iteraction.itemFactors.t, N, 1).reshape(dims, N2).t
-    val vks = tile(iteraction.itemFactors, N, 1)
-    val sub = vis.-(vks)
-    val top_bot = top./:/(bot).reshape(N2, 1)
+    val vis = tile(factors.t, N, 1).reshape(dims, N2).t
+    val vks = tile(factors, N, 1)
+    vis.-(vks)
+  }
 
-    val m = tile(top_bot, 1, sub.cols).*:*(sub)
+  private def sigdivision(ymx: DenseMatrix[Double], fmx_fmy: DenseMatrix[Double]): DenseMatrix[Double] = {
+    1.0 / invsig(ymx, fmx_fmy)
+  }
 
-    println(m)
+  private def invsig(ymx: DenseMatrix[Double], fmx_fmy: DenseMatrix[Double]): DenseMatrix[Double] = {
+    1.0 - ( ymx.*:*( sigmoid(fmx_fmy) ) )
+  }
 
-    Iteractions.Iteraction[T](iteraction.userFactors, iteraction.itemNames, iteraction.itemRatings, di)
+  private def tensor3dsum(N: Int, matrix: DenseMatrix[Double]):DenseMatrix[Double] = {
+    //Doing loop here because breeze doesnt have 3d tensors like numpy
+    // this in numpy: np.sum((top_bot * sub).reshape(N, N, D), axis=1)
+    val r = 0.to(N-1).map { i =>
+      val start = i * N
+      val end = start + N
+      val sl = start.until(end)
+      val n = matrix(sl, ::)
+      sum(n, Axis._0).t
+    }
+    DenseMatrix(r.toArray:_*)
   }
 
   private def dg(x:DenseMatrix[Double]): DenseMatrix[Double] = {
