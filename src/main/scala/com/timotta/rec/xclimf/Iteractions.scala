@@ -6,9 +6,9 @@ import breeze.linalg.DenseVector
 
 object Iteractions {
   case class Iteraction[T](
-    userFactors: DenseVector[Double],
+    userFactors: DenseMatrix[Double],
     itemNames: List[T],
-    itemRatings: DenseVector[Double],
+    itemRatings: DenseMatrix[Double],
     itemFactors: DenseMatrix[Double])
 
   type Iteractions[T] = RDD[(T, Iteraction[T])]

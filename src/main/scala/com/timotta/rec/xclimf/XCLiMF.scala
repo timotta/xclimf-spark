@@ -10,6 +10,7 @@ import scala.math.Ordering
 import ScalarMatrixOps._
 import breeze.linalg._
 import breeze.numerics._
+import scala.util.Try
 
 /**
  * @maxIters: Max number of iteractions to optimize
@@ -59,8 +60,8 @@ class XCLiMF[T: ClassTag](
   }
 
   private def prepareIteraction(users: RDD[(T, Array[(T, Float)])],
-    userFactors: RDD[(T, DenseVector[Double])],
-    itemFactors: RDD[(T, DenseVector[Double])]): Iteractions.Iteractions[T] = {
+    userFactors: Factors.Factors[T],
+    itemFactors: Factors.Factors[T]): Iteractions.Iteractions[T] = {
     users.flatMap {
       case (user, ratings) =>
         ratings.map {
@@ -73,8 +74,8 @@ class XCLiMF[T: ClassTag](
     }.groupBy(_._1).join(userFactors).map {
       case (user, (items, userFactors)) =>
         val itemNames = items.map(_._2._1).toList
-        val itemRatings = DenseVector(items.map(_._2._2.toDouble).toList:_*)
-        val itemFactors = DenseMatrix(items.map(_._2._3).toList:_*)
+        val itemRatings = DenseMatrix(items.map(_._2._2.toDouble).toList:_*)
+        val itemFactors = DenseMatrix(items.map(_._2._3.toArray).toArray:_*)
         (user, Iteractions.Iteraction(userFactors, itemNames, itemRatings, itemFactors))
     }
   }
@@ -88,24 +89,25 @@ class XCLiMF[T: ClassTag](
 
   protected[xclimf] def updateOneUser(user: T, iteraction: Iteractions.Iteraction[T]):Iteractions.Iteraction[T] = {
     val N = iteraction.itemNames.size
-    val fmiv = iteraction.itemFactors.*(iteraction.userFactors).toDenseMatrix
+
+    val fmiv = iteraction.userFactors.*(iteraction.itemFactors.t)
     val fmi = tile(fmiv, N, 1)
     val fmk = fmi.t
 
     val fmi_fmk = fmi.-:-(fmk)
     val fmk_fmi = fmk.-:-(fmi)
-    val ymi = iteraction.itemRatings.toDenseMatrix
+    val ymi = iteraction.itemRatings
     val ymk = ymi.t
     val ymitile = tile(ymi, fmi_fmk.rows, 1)
     val ymktile = tile(ymk, 1, fmk_fmi.cols)
     val g_fmi = sigmoid(mul(-1.0, fmiv))
 
-    //items partial increments
+    //items partial increments (will sum after all users looping)
     val div1 = sigdivision(ymktile, fmk_fmi)
     val div2 = sigdivision(ymitile, fmi_fmk)
     val bimul = ymktile.*:*(dg(fmi_fmk).*:*(div1 - div2))
     val brackets_i = g_fmi + sum(bimul(::, *))
-    val ymibru = ymi.*:*(brackets_i).t.*(iteraction.userFactors.toDenseMatrix)
+    val ymibru = ymi.*:*(brackets_i).t.*(iteraction.userFactors)
     val di = mul(gamma, (ymibru - mul(lambda, iteraction.itemFactors)))
 
     //user partial increment
@@ -118,14 +120,14 @@ class XCLiMF[T: ClassTag](
     val brackets_uk = tensor3dsum(N, top_bot_sub)
     val brackets_ui = tile(g_fmi.t, 1, dims).*:*(iteraction.itemFactors)
     val brackets_u = brackets_ui + brackets_uk
-    val du1 = iteraction.itemRatings.t * brackets_u
-    val bias = mul(lambda, iteraction.userFactors.toDenseMatrix)
-    val du2 = mul(gamma, du1.inner.toDenseMatrix - bias)
+    val du1 = iteraction.itemRatings * brackets_u
+    val bias = mul(lambda, iteraction.userFactors)
+    val du2 = mul(gamma, du1 - bias)
 
     //user factor summed
-    val userFactors = iteraction.userFactors.toDenseMatrix + du2
+    val userFactors = iteraction.userFactors + du2
 
-    Iteractions.Iteraction[T](userFactors.toDenseVector, iteraction.itemNames, iteraction.itemRatings, di)
+    Iteractions.Iteraction[T](userFactors, iteraction.itemNames, iteraction.itemRatings, di)
   }
 
   private def factorsubtract(N:Int, N2:Int, factors: DenseMatrix[Double]): DenseMatrix[Double] = {
