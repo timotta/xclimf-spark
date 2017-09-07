@@ -80,9 +80,9 @@ class XCLiMF[T: ClassTag](
 
   private def update(iteractions: Iteractions.Iteractions[T]) = {
     iteractions.map { case (user, iteraction) =>
-      updateOneUser(user, iteraction)
+      val updated = updateOneUser(user, iteraction)
+      (user, updated)
     }
-    iteractions
   }
 
   def updateOneUser(user: T, iteraction: Iteractions.Iteraction[T]) = {
