@@ -87,13 +87,18 @@ class XCLiMF[T: ClassTag](
 
   def updateOneUser(user: T, iteraction: Iteractions.Iteraction[T]) = {
     val N = iteraction.itemNames.size
-    val fmi = tile(iteraction.itemFactors.*(iteraction.userFactors).toDenseMatrix, N, 1)
+    val fmiv = iteraction.itemFactors.*(iteraction.userFactors)
+    val fmi = tile(fmiv.toDenseMatrix, N, 1)
     val fmk = fmi.t
 
     val fmi_fmk = fmi.-:-(fmk)
     val fmk_fmi = fmk.-:-(fmi)
 
-    println("fmi_fmk",  fmi_fmk)
-    println("fmk_fmi",  fmk_fmi)
+    val ymi = iteraction.itemRatings.toDenseMatrix
+    val ymk = ymi.t
+    val g_fmi = sigmoid(fmiv * -1.0)
+
+    val div1 = 1.0/(1.0 - (tile(ymk, 1, fmk_fmi.cols).*:*(sigmoid(fmk_fmi))))
+    val div2 = 1.0/(1.0 - (tile(ymi, fmi_fmk.rows, 1).*:*(sigmoid(fmi_fmk))))
   }
 }
