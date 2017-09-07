@@ -1,0 +1,32 @@
+apply plugin: 'scala'
+apply plugin: 'eclipse'
+
+sourceCompatibility = 1.8
+
+repositories{
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies{
+    compile 'org.slf4j:slf4j-api:1.7.5'
+    compile "org.scala-lang:scala-library:2.11.8"
+	compile 'org.apache.spark:spark-core_2.11:2.2.0'
+	compile 'org.apache.spark:spark-sql_2.11:2.2.0'
+	compile 'org.apache.spark:spark-mllib_2.11:2.2.0'
+	compile 'org.scalanlp:breeze_2.11:0.13.2'
+    testCompile "junit:junit:4.12"
+}
+
+test {
+    testLogging {
+        events 'passed', 'skipped', 'failed', 'standardOut', 'standardError'
+        exceptionFormat 'full'
+    }
+}
+
+task run(type: JavaExec, dependsOn: classes) {
+    main = 'Main'
+    classpath sourceSets.main.runtimeClasspath
+    classpath configurations.runtime
+}
