@@ -87,8 +87,8 @@ class XCLiMF[T: ClassTag](
 
   def updateOneUser(user: T, iteraction: Iteractions.Iteraction[T]) = {
     val N = iteraction.itemNames.size
-    val fmiv = iteraction.itemFactors.*(iteraction.userFactors)
-    val fmi = tile(fmiv.toDenseMatrix, N, 1)
+    val fmiv = iteraction.itemFactors.*(iteraction.userFactors).toDenseMatrix
+    val fmi = tile(fmiv, N, 1)
     val fmk = fmi.t
 
     val fmi_fmk = fmi.-:-(fmk)
@@ -96,9 +96,24 @@ class XCLiMF[T: ClassTag](
 
     val ymi = iteraction.itemRatings.toDenseMatrix
     val ymk = ymi.t
-    val g_fmi = sigmoid(fmiv * -1.0)
+    val ymitile = tile(ymi, fmi_fmk.rows, 1)
+    val ymktile = tile(ymk, 1, fmk_fmi.cols)
+    val g_fmi = sigmoid(-1.0 * fmiv)
 
-    val div1 = 1.0/(1.0 - (tile(ymk, 1, fmk_fmi.cols).*:*(sigmoid(fmk_fmi))))
-    val div2 = 1.0/(1.0 - (tile(ymi, fmi_fmk.rows, 1).*:*(sigmoid(fmi_fmk))))
+    val div1 = 1.0/(1.0 - (ymktile.*:*(sigmoid(fmk_fmi))))
+    val div2 = 1.0/(1.0 - (ymitile.*:*(sigmoid(fmi_fmk))))
+    val bimul = ymktile.*:*(dg(fmi_fmk).*:*(div1 - div2))
+    val brackets_i = g_fmi + sum(bimul(::, *))
+
+    val ymibru = ymi.*:*(brackets_i).t.*(iteraction.userFactors.toDenseMatrix)
+    val di = gamma * (ymibru - lambda * iteraction.itemFactors)
+
+    Iteractions.Iteraction[T](iteraction.userFactors, iteraction.itemNames, iteraction.itemRatings, di)
   }
+
+  private def dg(x:DenseMatrix[Double]) = {
+    exp(x)/pow((exp(x) + 1.0), 2)
+  }
+//    """derivative of sigmoid function"""
+//    return np.exp(x)/(1+np.exp(x))**2
 }

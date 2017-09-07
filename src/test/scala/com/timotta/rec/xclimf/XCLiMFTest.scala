@@ -9,7 +9,7 @@ class XCLiMFTest {
   @Test
   def updateOneUser(): Unit = {
 
-    val xclimf = new XCLiMF[String](dims = 4)
+    val xclimf = new XCLiMF[String](dims = 4, lambda = 0.1, gamma = 0.1)
 
     xclimf.updateOneUser("u1", Iteractions.Iteraction(
       userFactors = DenseVector(0.02, 0.01, 0.03, 0.04),
