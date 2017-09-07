@@ -112,19 +112,18 @@ class XCLiMF[T: ClassTag](
 
     val N2 = N * N
 
-    println("viks", iteraction.itemFactors )
-    println("vikstile", tile(iteraction.itemFactors, 1, N))
-
-    println("viksre", tile(iteraction.itemFactors, 1, N).t.reshape(1, N2*dims) )
-    println("viksre", tile(iteraction.itemFactors, 1, N).t.reshape(1, N2*dims).reshape(N2, dims) )
-
-    val vis = tile(iteraction.itemFactors, 1, N).t.reshape(N2, dims)
+    //Correct code if Breeze reshape was working properly:
+    //  in breeze: val vis = tile(iteraction.itemFactors, 1, N).reshape(N2, dims)
+    //In numpy works:
+    //  in numpy:  np.tile(viks, (1, N)).reshape(N2, D)
+    val vis = tile(iteraction.itemFactors.t, N, 1).reshape(dims, N2).t
     val vks = tile(iteraction.itemFactors, N, 1)
     val sub = vis.-(vks)
+    val top_bot = top./:/(bot).reshape(N2, 1)
 
-    println("vis", vis)
-    println("vks", vks)
-    println("sub", sub)
+    val m = tile(top_bot, 1, sub.cols).*:*(sub)
+
+    println(m)
 
     Iteractions.Iteraction[T](iteraction.userFactors, iteraction.itemNames, iteraction.itemRatings, di)
   }

@@ -54,4 +54,30 @@ class BreezeTest {
 
     Assert.assertEquals(expected, reshaped)
   }
+
+  @Test
+  def reshape2(): Unit = {
+    val dense = DenseMatrix(
+        DenseVector(1D, 2D, 1D, 2D, 1D, 2D),
+        DenseVector(3D, 4D, 3D, 4D, 3D, 4D))
+
+    val reshaped = dense.reshape(1, 12, true)
+    println(reshaped)
+
+    val reshaped2 = reshaped.reshape(6, 2)
+    println(reshaped2)
+
+    val dense2 = DenseMatrix(
+        DenseVector(1D, 2D),
+        DenseVector(3D, 4D))
+
+    println("-----")
+
+    println(tile(dense2.t, 3, 1).reshape(2, 6).t)
+
+    //val tiled = tile(dense2.reshape(4, 1), 1, 3)
+
+    //println(tiled)
+  }
+
 }
