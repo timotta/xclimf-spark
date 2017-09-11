@@ -131,8 +131,8 @@ class XCLiMF[T: ClassTag](
   }
 
   private def factorsubtract(N:Int, N2:Int, factors: DenseMatrix[Double]): DenseMatrix[Double] = {
-    //Correct code if Breeze reshape was working properly:
-    //  in breeze: val vis = tile(iteraction.itemFactors, 1, N).reshape(N2, dims)
+    //Correct code if Breeze was row orientend:
+    //  in breeze: val vis = tile(factors, 1, N).reshape(N2, dims)
     //In numpy works:
     //  in numpy:  np.tile(viks, (1, N)).reshape(N2, D)
     val vis = tile(factors.t, N, 1).reshape(dims, N2).t
