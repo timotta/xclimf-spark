@@ -7,10 +7,14 @@ import scala.reflect.ClassTag
 import org.apache.spark.rdd.PairRDDFunctions
 import org.apache.spark.mllib.rdd.MLPairRDDFunctions._
 import scala.math.Ordering
-import ScalarMatrixOps._
 import breeze.linalg._
 import breeze.numerics._
+import breeze.math._
+import ScalarMatrixOps._
 import scala.util.Try
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+import com.timotta.rec.xclimf.Iteractions.Iteraction
+import com.timotta.rec.xclimf.Iteractions.Iteraction
 
 /**
  * @maxIters: Max number of iteractions to optimize
@@ -74,28 +78,30 @@ class XCLiMF[T: ClassTag](
     }.groupBy(_._1).join(userFactors).map {
       case (user, (items, userFactors)) =>
         val itemNames = items.map(_._2._1).toList
-        val itemRatings = DenseMatrix(items.map(_._2._2.toDouble).toList:_*)
-        val itemFactors = DenseMatrix(items.map(_._2._3.toArray).toArray:_*)
+        val itemRatings = DenseMatrix(items.map(_._2._2.toDouble).toList: _*)
+        val itemFactors = DenseMatrix(items.map(_._2._3.toArray).toArray: _*)
         (user, Iteractions.Iteraction(userFactors, itemNames, itemRatings, itemFactors))
     }
   }
 
   private def update(iteractions: Iteractions.Iteractions[T]) = {
-    iteractions.map { case (user, iteraction) =>
-      val updated = updateOneUser(user, iteraction)
-      (user, updated)
+    iteractions.map {
+      case (user, iteraction) =>
+        val updated = updateOneUser(user, iteraction)
+        (user, updated)
     }
   }
 
-  protected[xclimf] def updateOneUser(user: T, iteraction: Iteractions.Iteraction[T]):Iteractions.Iteraction[T] = {
+  protected[xclimf] def updateOneUser(user: T, iteraction: Iteractions.Iteraction[T]): Iteractions.Iteraction[T] = {
     val N = iteraction.itemNames.size
 
-    val fmiv = iteraction.userFactors.*(iteraction.itemFactors.t)
+    val fmiv = fmiVector(iteraction)
+
     val fmi = tile(fmiv, N, 1)
     val fmk = fmi.t
-
     val fmi_fmk = fmi.-:-(fmk)
     val fmk_fmi = fmk.-:-(fmi)
+
     val ymi = iteraction.itemRatings
     val ymk = ymi.t
     val ymitile = tile(ymi, fmi_fmk.rows, 1)
@@ -130,7 +136,11 @@ class XCLiMF[T: ClassTag](
     Iteractions.Iteraction[T](userFactors, iteraction.itemNames, iteraction.itemRatings, di)
   }
 
-  private def factorsubtract(N:Int, N2:Int, factors: DenseMatrix[Double]): DenseMatrix[Double] = {
+  private def fmiVector(iteraction: Iteraction[T]): DenseMatrix[Double] = {
+    iteraction.userFactors.*(iteraction.itemFactors.t)
+  }
+
+  private def factorsubtract(N: Int, N2: Int, factors: DenseMatrix[Double]): DenseMatrix[Double] = {
     //Correct code if Breeze was row orientend:
     //  in breeze: val vis = tile(factors, 1, N).reshape(N2, dims)
     //In numpy works:
@@ -145,23 +155,66 @@ class XCLiMF[T: ClassTag](
   }
 
   private def invsig(ymx: DenseMatrix[Double], fmx_fmy: DenseMatrix[Double]): DenseMatrix[Double] = {
-    dif(1.0, ( ymx.*:*( sigmoid(fmx_fmy) ) ) )
+    dif(1.0, (ymx.*:*(sigmoid(fmx_fmy))))
   }
 
-  private def tensor3dsum(N: Int, matrix: DenseMatrix[Double]):DenseMatrix[Double] = {
+  private def tensor3dsum(N: Int, matrix: DenseMatrix[Double]): DenseMatrix[Double] = {
     //Doing loop here because breeze doesnt have 3d tensors like numpy
     // this in numpy: np.sum((top_bot * sub).reshape(N, N, D), axis=1)
-    val r = 0.to(N-1).map { i =>
+    val r = 0.to(N - 1).map { i =>
       val start = i * N
       val end = start + N
       val sl = start.until(end)
       val n = matrix(sl, ::)
       sum(n, Axis._0).t
     }
-    DenseMatrix(r.toArray:_*)
+    DenseMatrix(r.toArray: _*)
   }
 
-  private def dg(x:DenseMatrix[Double]): DenseMatrix[Double] = {
+  private def dg(x: DenseMatrix[Double]): DenseMatrix[Double] = {
     exp(x) / pow(add(1.0, exp(x)), 2)
+  }
+
+  protected[xclimf] def objective(iteractions: Iteractions.Iteractions[T],
+    U: Factors.Factors[T], V: Factors.Factors[T], maxRating: Double): Double = {
+    val errors = iteractions.map {
+      case (user, iteraction) =>
+        objective(iteraction, maxRating)
+    }.sum()
+    (errors + regularization(U, V)) / U.count()
+  }
+
+  protected[xclimf] def objective(iteraction: Iteraction[T], maxRating: Double): Double = {
+    val N = iteraction.itemNames.size
+
+    val fmiv = fmiVector(iteraction)
+    val fmjv = fmiv.t
+
+    val ymi = iteraction.itemRatings
+    val rmi = relevanceProbability(ymi, maxRating)
+    val rmj = rmi.t
+
+    val fmi = tile(fmiv, N, 1)
+    val fmj = fmi.t
+    val fmj_fmi = fmj.-:-(fmi)
+
+    val b1 = log(sigmoid(fmiv))
+    val rmjGfs = tile(rmj, 1, N).*:*(sigmoid(fmj_fmi))
+    val log1rg = log(dif(1, rmjGfs))
+    val b2 = DenseMatrix(sum(log1rg, Axis._0).t)
+
+    val obj = b1 + b2
+
+    rmi.toDenseVector.dot(obj.toDenseVector)
+  }
+
+  private def relevanceProbability(r: DenseMatrix[Double], maxi: Double): DenseMatrix[Double] = {
+    div(dif(power(2, r), 1), pow(2, maxi))
+  }
+
+  private def regularization(U: Factors.Factors[T], V: Factors.Factors[T]): Double = {
+    val sumV2 = V.map { case (_, f) => sum(pow(f, 2)) }.sum()
+    val sumU2 = U.map { case (_, f) => sum(pow(f, 2)) }.sum()
+    -0.5 * lambda * (sumV2 + sumU2)
   }
 }
