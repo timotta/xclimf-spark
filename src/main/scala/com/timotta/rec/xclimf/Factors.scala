@@ -3,7 +3,6 @@ package com.timotta.rec.xclimf
 import org.apache.spark.rdd.RDD
 import breeze.linalg.DenseMatrix
 import breeze.linalg.DenseVector
-import org.apache.spark.ml.recommendation.ALS.Rating
 import scala.reflect.ClassTag
 import org.apache.spark.rdd.PairRDDFunctions
 import org.apache.spark.mllib.rdd.MLPairRDDFunctions._
@@ -12,7 +11,7 @@ object Factors {
 
   type Factors[T] = RDD[(T, DenseMatrix[Double])]
 
-  def startUserFactors[T](users: RDD[(T, Array[(T, Float)])], dims: Int): Factors[T] = {
+  def startUserFactors[T](users: RDD[(T, Array[(T, Double)])], dims: Int): Factors[T] = {
     users.map { case (user, _) => (user, DenseMatrix.rand(1, dims) * 0.01) }
   }
 
@@ -21,9 +20,6 @@ object Factors {
   }
 
   def asItemFactors[T: ClassTag](iteractions: Iteractions.Iteractions[T], itemFactors: Factors[T]): Factors[T] = {
-
-    itemFactors.collect().foreach(println)
-
     iteractions.flatMap {
       case (_, Iteractions.Iteraction(_, itemNames, itemRatings, itemFactors)) =>
         0.to(itemNames.size - 1).map { i =>

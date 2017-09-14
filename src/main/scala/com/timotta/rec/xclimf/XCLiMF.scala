@@ -1,8 +1,6 @@
 package com.timotta.rec.xclimf
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.ml.recommendation.ALS.Rating
-import org.apache.spark.sql.Dataset
 import scala.reflect.ClassTag
 import org.apache.spark.rdd.PairRDDFunctions
 import org.apache.spark.mllib.rdd.MLPairRDDFunctions._
@@ -13,6 +11,7 @@ import breeze.math._
 import ScalarMatrixOps._
 import com.timotta.rec.xclimf.Iteractions.Iteraction
 import scala.util.control.Breaks._
+import org.apache.log4j.LogManager
 
 /**
  * @maxIters: Max number of iteractions to optimize
@@ -32,6 +31,8 @@ class XCLiMF[T: ClassTag](
   ignoreTopK: Int = 3,
   epsilon: Double = 1e-4f) extends Serializable {
 
+  @transient private val log = LogManager.getLogger(getClass)
+
   def fit(ratings: RDD[Rating[T]]) {
     val validRatings = ignoreGlobalTopK(ratings)
     val max = validRatings.max()(Ordering.by(_.rating)).rating
@@ -39,16 +40,21 @@ class XCLiMF[T: ClassTag](
 
     var userFactors = Factors.startUserFactors(users, dims)
     var itemFactors = Factors.startItemFactors(validRatings, dims)
-    var objective = new ObjectiveTrack[T](max, lambda, epsilon)
+    val objective = new ObjectiveTrack[T](max, lambda, epsilon)
 
     breakable {
-      for (i <- 0 to maxIters) {
+      for (i <- 1 to maxIters) {
         val iteraction = prepareIteraction(users, userFactors, itemFactors)
+
         if (objective.update(iteraction, userFactors, itemFactors)) {
+          log.info("doing iteraction=" + i + ": last objective=" + objective.lastObjective)
           val updated = update(iteraction)
+
           itemFactors = Factors.asItemFactors(updated, itemFactors)
           userFactors = Factors.asUserFactors(updated)
-        } else break
+        } else {
+          log.info("stopying at iteraction=" + i + ": last objective=" + objective.lastObjective)
+        }
       }
     }
   }
@@ -67,9 +73,10 @@ class XCLiMF[T: ClassTag](
     ratings.map(r => (r.user, (r.item, r.rating))).topByKey(topK)(Ordering.by(_._2))
   }
 
-  private def prepareIteraction(users: RDD[(T, Array[(T, Float)])],
+  private def prepareIteraction(users: RDD[(T, Array[(T, Double)])],
     userFactors: Factors.Factors[T],
     itemFactors: Factors.Factors[T]): Iteractions.Iteractions[T] = {
+    val numPartitions = users.partitions.size
     users.flatMap {
       case (user, ratings) =>
         ratings.map {
@@ -82,10 +89,10 @@ class XCLiMF[T: ClassTag](
     }.groupBy(_._1).join(userFactors).map {
       case (user, (items, userFactors)) =>
         val itemNames = items.map(_._2._1).toList
-        val itemRatings = DenseMatrix(items.map(_._2._2.toDouble).toList: _*)
+        val itemRatings = DenseMatrix(items.map(_._2._2).toList: _*).t
         val itemFactors = DenseMatrix(items.map(_._2._3.toArray).toArray: _*)
         (user, Iteractions.Iteraction(userFactors, itemNames, itemRatings, itemFactors))
-    }
+    }.repartition(numPartitions)
   }
 
   private def update(iteractions: Iteractions.Iteractions[T]) = {

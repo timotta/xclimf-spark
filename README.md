@@ -1,7 +1,7 @@
 TODO
 ====
 
-- Configurable logging and callbacks
+- Normalize ratings
 - Experiment with bigdata
 - Publish spark package
 - Predict function

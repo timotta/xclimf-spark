@@ -8,10 +8,12 @@ import breeze.numerics._
 import breeze.math._
 import ScalarMatrixOps._
 import breeze.linalg.Axis
+import scala.util.Random
 
 class ObjectiveTrack[T](val maxRating: Double, val lambda: Double, val epsilon: Double) extends Serializable {
 
   var biggerObjective = Double.NegativeInfinity
+  var lastObjective = Double.NegativeInfinity
 
   def update(iteractions: Iteractions.Iteractions[T], U: Factors.Factors[T], V: Factors.Factors[T]): Boolean = {
     val actualObjective = calcAll(iteractions, U, V)
@@ -19,6 +21,7 @@ class ObjectiveTrack[T](val maxRating: Double, val lambda: Double, val epsilon: 
     if (actualObjective > biggerObjective) {
       biggerObjective = actualObjective
     }
+    lastObjective = actualObjective
     result
   }
 

@@ -84,4 +84,24 @@ class ObjectiveTrackTest {
     Assert.assertEquals(-0.794970905, objective, 1e-8)
   }
 
+  @Test
+  def calcOne5x10(): Unit = {
+    val iteraction = Iteractions.Iteraction(
+      userFactors = DenseMatrix(DenseVector(0.02, 0.01, 0.03, 0.04, 0.05, 0.02, 0.02, 0.03, 0.01, 0.07)),
+      itemNames = List("i1", "i2", "i3", "i4", "i5"),
+      itemRatings = DenseMatrix(DenseVector(0.2, 0.5, 0.7, 0.3, 0.8)),
+      itemFactors = DenseMatrix(
+        DenseVector(0.01, 0.02, 0.03, 0.015, 0.04, 0.03, 0.02, 0.01, 0.009, 0.012),
+        DenseVector(0.05, 0.07, 0.11, 0.101, 0.01, 0.02, 0.03, 0.04, 0.01,  0.001),
+        DenseVector(0.02, 0.01, 0.03, 0.03,  0.02, 0.03, 0.04, 0.03, 0.02,  0.01),
+        DenseVector(0.02, 0.02, 0.01, 0.03,  0.02, 0.03, 0.05, 0.03, 0.02,  0.01),
+        DenseVector(0.02, 0.01, 0.08, 0.03,  0.01, 0.06, 0.02, 0.031, 0.021,  0.02)))
+
+    val objectiveTrack = new ObjectiveTrack[String](maxRating = 0.8D, lambda = 0.1, epsilon = 1e-4)
+
+    val objective = objectiveTrack.calcOne(iteraction)
+
+    Assert.assertEquals(-1.69301826150723, objective, 1e-8)
+  }
+
 }
