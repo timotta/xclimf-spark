@@ -9,7 +9,12 @@ object Iteractions {
     userFactors: DenseMatrix[Double],
     itemNames: List[T],
     itemRatings: DenseMatrix[Double],
-    itemFactors: DenseMatrix[Double])
+    itemFactors: DenseMatrix[Double]) {
+
+    def fmi(): DenseMatrix[Double] = {
+      userFactors.*(itemFactors.t)
+    }
+  }
 
   type Iteractions[T] = RDD[(T, Iteraction[T])]
 }

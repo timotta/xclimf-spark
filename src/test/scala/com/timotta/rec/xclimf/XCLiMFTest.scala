@@ -10,41 +10,6 @@ import org.junit.Assert
 class XCLiMFUnitTest {
 
   @Test
-  def objective2x4(): Unit = {
-    val iteraction = Iteractions.Iteraction(
-      userFactors = DenseMatrix(DenseVector(0.02, 0.01, 0.03, 0.04)),
-      itemNames = List("i1", "i3"),
-      itemRatings = DenseMatrix(DenseVector(0.2D, 0.5D)),
-      itemFactors = DenseMatrix(
-        DenseVector(0.01, 0.02, 0.03, 0.15),
-        DenseVector(0.05, 0.07, 0.11, 0.101)))
-
-    val xclimf = new XCLiMF[String](dims = 4, lambda = 0.1, gamma = 0.1)
-
-    val objective = xclimf.objective(iteraction, 0.5D)
-
-    Assert.assertEquals(-0.35872157, objective, 1e-8)
-  }
-
-  @Test
-  def objective3x4(): Unit = {
-    val iteraction = Iteractions.Iteraction(
-      userFactors = DenseMatrix(DenseVector(0.02, 0.01, 0.03, 0.04)),
-      itemNames = List("i1", "i2", "i3"),
-      itemRatings = DenseMatrix(DenseVector(0.2, 0.5, 0.7)),
-      itemFactors = DenseMatrix(
-        DenseVector(0.01, 0.02, 0.03, 0.015),
-        DenseVector(0.05, 0.07, 0.11, 0.101),
-        DenseVector(0.02, 0.01, 0.01, 0.03)))
-
-    val xclimf = new XCLiMF[String](dims = 4, lambda = 0.1, gamma = 0.1)
-
-    val objective = xclimf.objective(iteraction, 0.7D)
-
-    Assert.assertEquals(-0.794970905, objective, 1e-8)
-  }
-
-  @Test
   def updateOneUser2x4(): Unit = {
 
     val xclimf = new XCLiMF[String](dims = 4, lambda = 0.1, gamma = 0.1)

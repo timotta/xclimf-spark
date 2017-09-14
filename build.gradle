@@ -16,6 +16,7 @@ dependencies{
 	compile 'org.apache.spark:spark-mllib_2.11:2.2.0'
 	compile 'org.scalanlp:breeze_2.11:0.13.2'
     testCompile "junit:junit:4.12"
+    testCompile "org.mockito:mockito-all:1.10.19"
 }
 
 test {
