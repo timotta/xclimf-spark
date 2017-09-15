@@ -73,8 +73,8 @@ class XCLiMF[T: ClassTag](
 
     val fmi = tile(fmiv, N, 1)
     val fmk = fmi.t
-    val fmi_fmk = fmi.-:-(fmk)
-    val fmk_fmi = fmk.-:-(fmi)
+    val fmi_fmk = fmi.:-(fmk)
+    val fmk_fmi = fmk.:-(fmi)
 
     val ymi = iteraction.itemRatings
     val ymk = ymi.t
@@ -85,20 +85,20 @@ class XCLiMF[T: ClassTag](
     //items partial increments (will sum after all users looping)
     val div1 = sigdivision(ymktile, fmk_fmi)
     val div2 = sigdivision(ymitile, fmi_fmk)
-    val bimul = ymktile.*:*(dg(fmi_fmk).*:*(div1 - div2))
+    val bimul = ymktile.:*(dg(fmi_fmk).:*(div1 - div2))
     val brackets_i = g_fmi + sum(bimul(::, *))
-    val ymibru = ymi.*:*(brackets_i).t.*(iteraction.userFactors)
+    val ymibru = ymi.:*(brackets_i).t.*(iteraction.userFactors)
     val di = mul(gamma, (ymibru - mul(lambda, iteraction.itemFactors)))
 
     //user partial increment
-    val top = ymktile.*:*(dg(fmk_fmi))
+    val top = ymktile.:*(dg(fmk_fmi))
     val bot = invsig(ymktile, fmk_fmi)
     val N2 = N * N
     val sub = factorsubtract(N, N2, iteraction.itemFactors)
-    val top_bot = top./:/(bot).reshape(N2, 1)
-    val top_bot_sub = tile(top_bot, 1, sub.cols).*:*(sub)
+    val top_bot = top.:/(bot).reshape(N2, 1)
+    val top_bot_sub = tile(top_bot, 1, sub.cols).:*(sub)
     val brackets_uk = tensor3dsum(N, top_bot_sub)
-    val brackets_ui = tile(g_fmi.t, 1, dims).*:*(iteraction.itemFactors)
+    val brackets_ui = tile(g_fmi.t, 1, dims).:*(iteraction.itemFactors)
     val brackets_u = brackets_ui + brackets_uk
     val du1 = iteraction.itemRatings * brackets_u
     val bias = mul(lambda, iteraction.userFactors)
@@ -129,7 +129,7 @@ class XCLiMF[T: ClassTag](
   }
 
   private def invsig(ymx: DenseMatrix[Double], fmx_fmy: DenseMatrix[Double]): DenseMatrix[Double] = {
-    dif(1.0, (ymx.*:*(sigmoid(fmx_fmy))))
+    dif(1.0, (ymx.:*(sigmoid(fmx_fmy))))
   }
 
   private def tensor3dsum(N: Int, matrix: DenseMatrix[Double]): DenseMatrix[Double] = {

@@ -26,6 +26,6 @@ object ScalarMatrixOps {
     m / v
   }
   def power(v: Double, m: DenseMatrix[Double]): DenseMatrix[Double] = {
-    v ^:^ m
+    v :^ m
   }
 }

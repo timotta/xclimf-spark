@@ -11,10 +11,14 @@ repositories{
 dependencies{
     compile 'org.slf4j:slf4j-api:1.7.5'
     compile "org.scala-lang:scala-library:2.11.8"
-	compile 'org.apache.spark:spark-core_2.11:2.2.0'
-	compile 'org.apache.spark:spark-sql_2.11:2.2.0'
-	compile 'org.apache.spark:spark-mllib_2.11:2.2.0'
-	compile 'org.scalanlp:breeze_2.11:0.13.2'
+	compile 'org.apache.spark:spark-core_2.11:2.1.1'
+	compile 'org.apache.spark:spark-sql_2.11:2.1.1'
+	compile 'org.apache.spark:spark-mllib_2.11:2.1.1' 
+	
+	//Breeze Version 0.12 for spark 2.11
+	//Breeze Version 0.13.2 for spark 2.2.0
+	//Breeze Version 0.11.2 for spark 2.0.0
+	
     testCompile "junit:junit:4.12"
     testCompile "org.mockito:mockito-all:1.10.19"
 }
@@ -26,8 +30,9 @@ test {
     }
 }
 
+
 task run(type: JavaExec, dependsOn: classes) {
-    main = 'Main'
+    main = 'com.timotta.rec.xclimf.Main'
     classpath sourceSets.main.runtimeClasspath
     classpath configurations.runtime
 }

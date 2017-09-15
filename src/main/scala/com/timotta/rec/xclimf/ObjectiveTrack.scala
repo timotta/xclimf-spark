@@ -9,8 +9,9 @@ import breeze.math._
 import ScalarMatrixOps._
 import breeze.linalg.Axis
 import scala.util.Random
+import scala.reflect.ClassTag
 
-class ObjectiveTrack[T](val maxRating: Double, val lambda: Double, val epsilon: Double) extends Serializable {
+class ObjectiveTrack[T: ClassTag](val maxRating: Double, val lambda: Double, val epsilon: Double) extends Serializable {
 
   var biggerObjective = Double.NegativeInfinity
   var lastObjective = Double.NegativeInfinity
@@ -37,7 +38,7 @@ class ObjectiveTrack[T](val maxRating: Double, val lambda: Double, val epsilon: 
     (errors + regularization(U, V)) / U.count()
   }
 
-  protected[xclimf] def calcOne(iteraction: Iteractions.Iteraction[T]): Double = {
+  def calcOne(iteraction: Iteractions.Iteraction[T]): Double = {
     val N = iteraction.itemNames.size
 
     val fmiv = iteraction.fmi()
@@ -49,10 +50,10 @@ class ObjectiveTrack[T](val maxRating: Double, val lambda: Double, val epsilon: 
 
     val fmi = tile(fmiv, N, 1)
     val fmj = fmi.t
-    val fmj_fmi = fmj.-:-(fmi)
+    val fmj_fmi = fmj.:-(fmi)
 
     val b1 = log(sigmoid(fmiv))
-    val rmjGfs = tile(rmj, 1, N).*:*(sigmoid(fmj_fmi))
+    val rmjGfs = tile(rmj, 1, N).:*(sigmoid(fmj_fmi))
     val log1rg = log(dif(1, rmjGfs))
     val b2 = DenseMatrix(sum(log1rg, Axis._0).t)
 
