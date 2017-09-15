@@ -18,5 +18,8 @@ object Main extends App {
   }.toSeq).keyBy { r => (r.user, r.item) }.reduceByKey((a,b) => if(a.rating>b.rating) a else b).values
 
   val xclimf = new XCLiMF[String]()
-  xclimf.fit(rdd)
+  val model = xclimf.fit(rdd)
+
+  model.getItemFactors().take(10).foreach(println(_))
+  model.getUserFactors().take(10).foreach(println(_))
 }

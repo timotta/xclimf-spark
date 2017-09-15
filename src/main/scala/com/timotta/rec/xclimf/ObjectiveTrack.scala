@@ -25,6 +25,10 @@ class ObjectiveTrack[T](val maxRating: Double, val lambda: Double, val epsilon: 
     result
   }
 
+  def update(iteractions: Iteractions.Iteractions[T], model: XCLiMFModel[T]): Boolean = {
+    update(iteractions, model.getUserFactors(), model.getItemFactors())
+  }
+
   protected[xclimf] def calcAll(iteractions: Iteractions.Iteractions[T],
     U: Factors.Factors[T], V: Factors.Factors[T]): Double = {
     val errors = iteractions.map {

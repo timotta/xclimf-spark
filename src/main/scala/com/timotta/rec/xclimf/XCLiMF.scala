@@ -33,31 +33,29 @@ class XCLiMF[T: ClassTag](
 
   @transient private val log = LogManager.getLogger(getClass)
 
-  def fit(ratings: RDD[Rating[T]]) {
+  def fit(ratings: RDD[Rating[T]]): XCLiMFModel[T] = {
     val validRatings = Rating.prepare(ratings, ignoreTopK)
     val users = Rating.topKByUser(validRatings, topK)
 
-    var userFactors = Factors.startUserFactors(users, dims)
-    var itemFactors = Factors.startItemFactors(users, dims)
+    val model = new XCLiMFModel[T](users, dims)
 
     val max = validRatings.max()(Ordering.by(_.rating)).rating
     val objective = new ObjectiveTrack[T](max, lambda, epsilon)
 
     breakable {
       for (i <- 1 to maxIters) {
-        val iteraction = Iteractions.prepare(users, userFactors, itemFactors)
-
-        if (objective.update(iteraction, userFactors, itemFactors)) {
+        val iteraction = Iteractions.prepare(users, model)
+        if (objective.update(iteraction, model)) {
           log.info("doing iteraction=" + i + ": last objective=" + objective.lastObjective)
           val updated = update(iteraction)
-
-          itemFactors = Factors.asItemFactors(updated, itemFactors)
-          userFactors = Factors.asUserFactors(updated)
+          model.update(updated)
         } else {
           log.info("stopying at iteraction=" + i + ": last objective=" + objective.lastObjective)
         }
       }
     }
+
+    model
   }
 
   private def update(iteractions: Iteractions.Iteractions[T]) = {

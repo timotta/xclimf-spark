@@ -21,7 +21,7 @@ object Iteractions {
 
   def prepare[T: ClassTag](users: RDD[(T, Array[(T, Double)])],
     userFactors: Factors.Factors[T],
-    itemFactors: Factors.Factors[T]): Iteractions.Iteractions[T] = {
+    itemFactors: Factors.Factors[T]): Iteractions[T] = {
     val numPartitions = users.partitions.size
     users.flatMap {
       case (user, ratings) =>
@@ -39,5 +39,9 @@ object Iteractions {
         val itemFactors = DenseMatrix(items.map(_._2._3.toArray).toArray: _*)
         (user, Iteractions.Iteraction(userFactors, itemNames, itemRatings, itemFactors))
     }.repartition(numPartitions)
+  }
+
+  def prepare[T: ClassTag](users: RDD[(T, Array[(T, Double)])], model: XCLiMFModel[T]): Iteractions[T] = {
+    prepare(users, model.getUserFactors(), model.getItemFactors())
   }
 }
