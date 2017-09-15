@@ -34,12 +34,13 @@ class XCLiMF[T: ClassTag](
   @transient private val log = LogManager.getLogger(getClass)
 
   def fit(ratings: RDD[Rating[T]]) {
-    val validRatings = ignoreGlobalTopK(ratings)
-    val max = validRatings.max()(Ordering.by(_.rating)).rating
-    val users = selectTopKByUser(validRatings)
+    val validRatings = Rating.prepare(ratings, ignoreTopK)
+    val users = Rating.topKByUser(validRatings, topK)
 
     var userFactors = Factors.startUserFactors(users, dims)
-    var itemFactors = Factors.startItemFactors(validRatings, dims)
+    var itemFactors = Factors.startItemFactors(users, dims)
+
+    val max = validRatings.max()(Ordering.by(_.rating)).rating
     val objective = new ObjectiveTrack[T](max, lambda, epsilon)
 
     breakable {
@@ -57,20 +58,6 @@ class XCLiMF[T: ClassTag](
         }
       }
     }
-  }
-
-  private def ignoreGlobalTopK(ratings: RDD[Rating[T]]) = {
-    val toIgnore = ratings.map { r => (r.item, r.rating) }
-      .reduceByKey(_ + _)
-      .sortBy(_._2, false)
-      .map(_._1)
-      .take(ignoreTopK)
-      .toList
-    ratings.filter(r => !toIgnore.contains(r.item))
-  }
-
-  private def selectTopKByUser(ratings: RDD[Rating[T]]) = {
-    ratings.map(r => (r.user, (r.item, r.rating))).topByKey(topK)(Ordering.by(_._2))
   }
 
   private def prepareIteraction(users: RDD[(T, Array[(T, Double)])],

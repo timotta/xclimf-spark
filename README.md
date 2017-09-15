@@ -1,7 +1,6 @@
 TODO
 ====
 
-- Normalize ratings
-- Experiment with bigdata
 - Publish spark package
+- Experiment with bigdata
 - Predict function

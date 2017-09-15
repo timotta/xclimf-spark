@@ -15,8 +15,9 @@ object Factors {
     users.map { case (user, _) => (user, DenseMatrix.rand(1, dims) * 0.01) }
   }
 
-  def startItemFactors[T: ClassTag](items: RDD[Rating[T]], dims: Int): Factors[T] = {
-    items.map(_.item).distinct().map { item => (item, DenseMatrix.rand(1, dims) * 0.01) }
+  def startItemFactors[T: ClassTag](users: RDD[(T, Array[(T, Double)])], dims: Int): Factors[T] = {
+    users.flatMap { case (_, items) => items.map(_._1) }.distinct()
+      .map { item => (item, DenseMatrix.rand(1, dims) * 0.01) }
   }
 
   def asItemFactors[T: ClassTag](iteractions: Iteractions.Iteractions[T], itemFactors: Factors[T]): Factors[T] = {

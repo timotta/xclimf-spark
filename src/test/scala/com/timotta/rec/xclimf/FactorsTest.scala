@@ -45,9 +45,9 @@ class FactorsTest {
   @Test
   def startItemFactors(): Unit = {
     val ratings = FactorsTest.spark.sparkContext.parallelize(Seq(
-      Rating[String]("u1", "i1", 10D),
-      Rating[String]("u2", "i2", 10D),
-      Rating[String]("u3", "i1", 10D)
+      ("u1", Array(("i1", 10D))),
+      ("u2", Array(("i2", 10D))),
+      ("u3", Array(("i1", 10D)))
     ))
 
     val result = Factors.startItemFactors(ratings, 5).collect().toMap
