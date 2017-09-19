@@ -3,12 +3,24 @@ apply plugin: 'eclipse'
 
 sourceCompatibility = 1.8
 
+buildscript {
+	repositories{
+	    mavenCentral()
+	    mavenLocal()
+	}
+	dependencies {
+		classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.11.0"
+	}
+}
+
+apply plugin: 'io.codearte.nexus-staging'
+
 repositories{
     mavenCentral()
     mavenLocal()
 }
 
-dependencies{
+dependencies {
     compile 'org.slf4j:slf4j-api:1.7.5'
     compile "org.scala-lang:scala-library:2.11.8"
 	compile 'org.apache.spark:spark-core_2.11:2.1.1'
@@ -35,4 +47,88 @@ task run(type: JavaExec, dependsOn: classes) {
     main = 'com.timotta.rec.xclimf.Main'
     classpath sourceSets.main.runtimeClasspath
     classpath configurations.runtime
+}
+
+if (project.hasProperty('release')) {
+
+    subprojects {
+
+        task javadocJar(type: Jar) {
+            classifier = 'javadoc'
+            from javadoc
+        }
+
+        task sourcesJar(type: Jar) {
+            classifier = 'sources'
+            from sourceSets.main.allSource
+        }
+
+        artifacts {
+            archives javadocJar, sourcesJar
+        }
+    }
+
+    allprojects {
+        apply plugin: 'signing'
+        apply plugin: 'maven'
+
+        // Signature of artifacts
+        signing {
+            sign configurations.archives
+        }
+
+        // OSSRH publication
+        uploadArchives {
+            repositories {
+                mavenDeployer {
+                    // POM signature
+                    beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+                    // Target repository
+					repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+						authentication(userName: ossrhUsername, password: ossrhPassword)
+					}
+					snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+						authentication(userName: ossrhUsername, password: ossrhPassword)
+					}
+                    pom.project {
+                        name "xCLiMF Spark"
+                        description "Extended Collaborative Less Is More Filtering for Spark"
+                        packaging 'jar'
+                        url 'https://github.com/timotta/xclimf-spark'
+                        version '0.0.1'
+                        groupId 'com.timotta'
+
+                        scm {
+                            connection 'scm:git:https://github.com/timotta/xclimf-spark.git'
+                            developerConnection 'scm:git:git@github.com:timotta/xclimf-spark.git'
+                            url 'https://github.com/timotta/xclimf-spark.git'
+                        }
+
+                        licenses {
+                            license {
+                                name 'Do What The F*ck You Want To Public License (WTFPL)'
+                                url 'https://spdx.org/licenses/WTFPL'
+                                distribution 'repo'
+                            }
+                        }
+
+                        developers {
+                            developer {
+                                id = 'timotta'
+                                name = 'Tiago Albineli Motta'
+                                email = 'timotta@mail.com'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+}
+
+nexusStaging { 
+	packageGroup = 'com.timotta'
+    username = ossrhUsername
+    password = ossrhPassword
 }
