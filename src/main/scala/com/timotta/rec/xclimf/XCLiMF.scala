@@ -37,7 +37,7 @@ class XCLiMF[T: ClassTag](
     val validRatings = Rating.prepare(ratings, ignoreTopK)
     val users = Rating.topKByUser(validRatings, topK)
 
-    val model = new XCLiMFModel[T](users, dims)
+    val model = XCLiMFModel[T](users, dims)
 
     val max = validRatings.max()(Ordering.by(_.rating)).rating
     val objective = new ObjectiveTrack[T](max, lambda, epsilon)
