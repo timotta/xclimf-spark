@@ -12,6 +12,7 @@ import ScalarMatrixOps._
 import com.timotta.rec.xclimf.Iteractions.Iteraction
 import scala.util.control.Breaks._
 import org.apache.log4j.LogManager
+import org.apache.spark.api.java.StorageLevels
 
 /**
  * @maxIters: Max number of iteractions to optimize
@@ -39,11 +40,10 @@ class XCLiMF[T: ClassTag](
     val validRatings = Rating.prepare(ratings, ignoreTopK)
     val users = Rating.topKByUser(validRatings, topK)
     val model = XCLiMFModel[T](users, dims)
-    val ratingsByItems = Rating.flatByItems(users).cache()
+    val ratingsByItems = Rating.flatByItems(users).persist(StorageLevels.MEMORY_AND_DISK)
     val numPartitions = users.partitions.size
 
-    val max = validRatings.max()(Ordering.by(_.rating)).rating
-    val objective = ObjectiveTrack[T](objectiveValidate, max, lambda, epsilon)
+    val objective = ObjectiveTrack[T](objectiveValidate, validRatings, lambda, epsilon)
 
     breakable {
       for (i <- 1 to maxIters) {
@@ -59,7 +59,7 @@ class XCLiMF[T: ClassTag](
       }
     }
 
-    users.unpersist()
+    ratingsByItems.unpersist()
 
     model
   }

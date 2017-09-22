@@ -10,6 +10,7 @@ import ScalarMatrixOps._
 import breeze.linalg.Axis
 import scala.util.Random
 import scala.reflect.ClassTag
+import org.apache.spark.rdd.RDD
 
 trait ObjectiveTrack[T] {
   def update(iteractions: Iteractions.Iteractions[T], U: Factors.Factors[T], V: Factors.Factors[T]): Boolean
@@ -17,9 +18,10 @@ trait ObjectiveTrack[T] {
 }
 
 object ObjectiveTrack {
-  def apply[T: ClassTag](shouldTrack: Boolean, maxRating: Double, lambda: Double, epsilon: Double): ObjectiveTrack[T] = {
+  def apply[T: ClassTag](shouldTrack: Boolean, ratings: RDD[Rating[T]], lambda: Double, epsilon: Double): ObjectiveTrack[T] = {
     if (shouldTrack) {
-      new ObjectiveTrackReal[T](maxRating, lambda, epsilon)
+      val max = ratings.max()(Ordering.by(_.rating)).rating
+      new ObjectiveTrackReal[T](max, lambda, epsilon)
     } else {
       new ObjectiveTrackNull()
     }
