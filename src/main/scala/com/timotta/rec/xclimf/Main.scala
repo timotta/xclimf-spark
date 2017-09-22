@@ -22,4 +22,8 @@ object Main extends App {
 
   model.getItemFactors().take(10).foreach(println(_))
   model.getUserFactors().take(10).foreach(println(_))
+
+  model.recommend(5).take(10).foreach { a =>
+    println(a._1 + " => " + a._2.toList)
+  }
 }

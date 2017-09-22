@@ -40,4 +40,25 @@ object Rating {
   def topKByUser[T: ClassTag](ratings: RDD[Rating[T]], topK: Int) = {
     ratings.map(r => (r.user, (r.item, r.rating))).topByKey(topK)(Ordering.by(_._2))
   }
+
+  def flatByItems[T: ClassTag](userRatings: RDD[(T, Array[(T, Double)])]): RDD[(T, (T, Double))] = {
+    userRatings.flatMap {
+      case (user, ratings) =>
+        ratings.map {
+          case (item, rating) =>
+            (item, (user, rating))
+        }
+    }
+  }
+
+  def flatByUsers[T: ClassTag](userRatings: RDD[(T, Array[(T, Double)])]): RDD[(T, (T, Double))] = {
+    userRatings.flatMap {
+      case (user, ratings) =>
+        ratings.map {
+          case (item, rating) =>
+            (user, (item, rating))
+        }
+    }
+  }
+
 }

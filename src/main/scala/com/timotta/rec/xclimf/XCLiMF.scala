@@ -20,7 +20,8 @@ import org.apache.log4j.LogManager
  * @lambda: Regularization factor for avoiding bias
  * @topK: Consider only topk itens for each user
  * @ignoreTopK: Number of global topK items to ignore
- * @epsilon: Error tolerance for stopying gradient
+ * @epsilon: Error tolerance on objective function for stopying gradient
+ * @objectiveValidate: Verify or not for each iteraction if should stop gradient calculating objective function
  */
 class XCLiMF[T: ClassTag](
   maxIters: Int = 25,
@@ -29,31 +30,36 @@ class XCLiMF[T: ClassTag](
   lambda: Double = 0.001f,
   topK: Int = 5,
   ignoreTopK: Int = 3,
-  epsilon: Double = 1e-4f) extends Serializable {
+  epsilon: Double = 1e-4f,
+  objectiveValidate: Boolean = true) extends Serializable {
 
   @transient private val log = LogManager.getLogger(getClass)
 
   def fit(ratings: RDD[Rating[T]]): XCLiMFModel[T] = {
     val validRatings = Rating.prepare(ratings, ignoreTopK)
     val users = Rating.topKByUser(validRatings, topK)
-
     val model = XCLiMFModel[T](users, dims)
+    val ratingsByItems = Rating.flatByItems(users).cache()
+    val numPartitions = users.partitions.size
 
     val max = validRatings.max()(Ordering.by(_.rating)).rating
-    val objective = new ObjectiveTrack[T](max, lambda, epsilon)
+    val objective = ObjectiveTrack[T](objectiveValidate, max, lambda, epsilon)
 
     breakable {
       for (i <- 1 to maxIters) {
-        val iteraction = Iteractions.prepare(users, model)
+        val iteraction = Iteractions.prepare(ratingsByItems, numPartitions, model)
         if (objective.update(iteraction, model)) {
-          log.info("doing iteraction=" + i + ": last objective=" + objective.lastObjective)
+          log.info("doing iteraction=" + i + ": " + objective)
           val updated = update(iteraction)
           model.update(updated)
         } else {
-          log.info("stopying at iteraction=" + i + ": last objective=" + objective.lastObjective)
+          log.info("stopying at iteraction=" + i + ": " + objective)
+          break
         }
       }
     }
+
+    users.unpersist()
 
     model
   }

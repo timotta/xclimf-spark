@@ -10,6 +10,9 @@ object ScalarMatrixOps {
   def mul(v: Double, m: DenseMatrix[Double]): DenseMatrix[Double] = {
     v * m
   }
+  def mul(m: DenseMatrix[Double], v: Double): DenseMatrix[Double] = {
+    m * v
+  }
   def add(v: Double, m: DenseMatrix[Double]): DenseMatrix[Double] = {
     m + v
   }

@@ -11,12 +11,28 @@ import breeze.linalg.Axis
 import scala.util.Random
 import scala.reflect.ClassTag
 
-class ObjectiveTrack[T: ClassTag](val maxRating: Double, val lambda: Double, val epsilon: Double) extends Serializable {
+trait ObjectiveTrack[T] {
+  def update(iteractions: Iteractions.Iteractions[T], U: Factors.Factors[T], V: Factors.Factors[T]): Boolean
+  def update(iteractions: Iteractions.Iteractions[T], model: XCLiMFModel[T]): Boolean
+}
+
+object ObjectiveTrack {
+  def apply[T: ClassTag](shouldTrack: Boolean, maxRating: Double, lambda: Double, epsilon: Double): ObjectiveTrack[T] = {
+    if (shouldTrack) {
+      new ObjectiveTrackReal[T](maxRating, lambda, epsilon)
+    } else {
+      new ObjectiveTrackNull()
+    }
+  }
+}
+
+class ObjectiveTrackReal[T: ClassTag](val maxRating: Double, val lambda: Double, val epsilon: Double)
+  extends Serializable with ObjectiveTrack[T] {
 
   var biggerObjective = Double.NegativeInfinity
   var lastObjective = Double.NegativeInfinity
 
-  def update(iteractions: Iteractions.Iteractions[T], U: Factors.Factors[T], V: Factors.Factors[T]): Boolean = {
+  override def update(iteractions: Iteractions.Iteractions[T], U: Factors.Factors[T], V: Factors.Factors[T]): Boolean = {
     val actualObjective = calcAll(iteractions, U, V)
     val result = actualObjective >= biggerObjective - epsilon
     if (actualObjective > biggerObjective) {
@@ -26,7 +42,7 @@ class ObjectiveTrack[T: ClassTag](val maxRating: Double, val lambda: Double, val
     result
   }
 
-  def update(iteractions: Iteractions.Iteractions[T], model: XCLiMFModel[T]): Boolean = {
+  override def update(iteractions: Iteractions.Iteractions[T], model: XCLiMFModel[T]): Boolean = {
     update(iteractions, model.getUserFactors(), model.getItemFactors())
   }
 
@@ -38,7 +54,7 @@ class ObjectiveTrack[T: ClassTag](val maxRating: Double, val lambda: Double, val
     (errors + regularization(U, V)) / U.count()
   }
 
-  def calcOne(iteraction: Iteractions.Iteraction[T]): Double = {
+  protected[xclimf] def calcOne(iteraction: Iteractions.Iteraction[T]): Double = {
     val N = iteraction.itemNames.size
 
     val fmiv = iteraction.fmi()
@@ -62,6 +78,10 @@ class ObjectiveTrack[T: ClassTag](val maxRating: Double, val lambda: Double, val
     rmi.toDenseVector.dot(obj.toDenseVector)
   }
 
+  override def toString(): String = {
+    "ObjectiveTrackReal(last=" + lastObjective + ")"
+  }
+
   private def relevanceProbability(r: DenseMatrix[Double], maxi: Double): DenseMatrix[Double] = {
     div(dif(power(2, r), 1), pow(2, maxi))
   }
@@ -70,5 +90,17 @@ class ObjectiveTrack[T: ClassTag](val maxRating: Double, val lambda: Double, val
     val sumV2 = V.map { case (_, f) => sum(pow(f, 2)) }.sum()
     val sumU2 = U.map { case (_, f) => sum(pow(f, 2)) }.sum()
     -0.5 * lambda * (sumV2 + sumU2)
+  }
+}
+
+class ObjectiveTrackNull[T: ClassTag]() extends Serializable with ObjectiveTrack[T] {
+  override def update(iteractions: Iteractions.Iteractions[T], U: Factors.Factors[T], V: Factors.Factors[T]): Boolean = {
+    true
+  }
+  def update(iteractions: Iteractions.Iteractions[T], model: XCLiMFModel[T]): Boolean = {
+    true
+  }
+  override def toString(): String = {
+    "ObjectiveTrackNull()"
   }
 }

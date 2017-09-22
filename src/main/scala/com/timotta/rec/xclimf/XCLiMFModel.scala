@@ -5,6 +5,7 @@ import scala.reflect.ClassTag
 import org.apache.spark.mllib.rdd.MLPairRDDFunctions._
 import breeze.linalg.DenseMatrix
 import com.timotta.spark.BoundedPriorityQueue
+import com.timotta.spark.Blockfyier._
 
 object XCLiMFModel {
   def apply[T: ClassTag](users: RDD[(T, Array[(T, Double)])], dims: Int) = {
@@ -83,9 +84,4 @@ class XCLiMFModel[T: ClassTag](user: Factors.Factors[T], item: Factors.Factors[T
     recommend(topK, empty, blockSize)
   }
 
-  private def blockify[V](features: RDD[(T, V)], blockSize: Int) = {
-    features.mapPartitions { iter =>
-      iter.grouped(blockSize)
-    }
-  }
 }

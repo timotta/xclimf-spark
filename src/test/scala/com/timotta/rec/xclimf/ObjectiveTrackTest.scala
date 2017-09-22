@@ -11,7 +11,7 @@ class ObjectiveTrackTest {
 
   @Test
   def updateWhenCalcBigger(): Unit = {
-    val objectiveTrack = spy(new ObjectiveTrack[String](0D, 0D, epsilon=1D))
+    val objectiveTrack = spy(new ObjectiveTrackReal[String](0D, 0D, epsilon=1D))
     objectiveTrack.biggerObjective = 8D
     doReturn(10D).when(objectiveTrack).calcAll(any(), any(), any())
 
@@ -21,7 +21,7 @@ class ObjectiveTrackTest {
 
   @Test
   def updateWhenCalcEqualButInTheEpsilonMargin(): Unit = {
-    val objectiveTrack = spy(new ObjectiveTrack[String](0D, 0D, epsilon=1D))
+    val objectiveTrack = spy(new ObjectiveTrackReal[String](0D, 0D, epsilon=1D))
     objectiveTrack.biggerObjective = 10D
     doReturn(10D).when(objectiveTrack).calcAll(any(), any(), any())
 
@@ -31,7 +31,7 @@ class ObjectiveTrackTest {
 
   @Test
   def updateWhenCalcSmallerButInTheEpsilonMargin(): Unit = {
-    val objectiveTrack = spy(new ObjectiveTrack[String](0D, 0D, epsilon=1D))
+    val objectiveTrack = spy(new ObjectiveTrackReal[String](0D, 0D, epsilon=1D))
     objectiveTrack.biggerObjective = 10D
     doReturn(9D).when(objectiveTrack).calcAll(any(), any(), any())
 
@@ -41,7 +41,7 @@ class ObjectiveTrackTest {
 
   @Test
   def updateWhenCalcSmaller(): Unit = {
-    val objectiveTrack = spy(new ObjectiveTrack[String](0D, 0D, epsilon=1D))
+    val objectiveTrack = spy(new ObjectiveTrackReal[String](0D, 0D, epsilon=1D))
     objectiveTrack.biggerObjective = 10D
     doReturn(8D).when(objectiveTrack).calcAll(any(), any(), any())
 
@@ -59,7 +59,7 @@ class ObjectiveTrackTest {
         DenseVector(0.01, 0.02, 0.03, 0.15),
         DenseVector(0.05, 0.07, 0.11, 0.101)))
 
-    val objectiveTrack = new ObjectiveTrack[String](maxRating = 0.5D, lambda = 0.1, epsilon = 1e-4)
+    val objectiveTrack = new ObjectiveTrackReal[String](maxRating = 0.5D, lambda = 0.1, epsilon = 1e-4)
 
     val objective = objectiveTrack.calcOne(iteraction)
 
@@ -77,7 +77,7 @@ class ObjectiveTrackTest {
         DenseVector(0.05, 0.07, 0.11, 0.101),
         DenseVector(0.02, 0.01, 0.01, 0.03)))
 
-    val objectiveTrack = new ObjectiveTrack[String](maxRating = 0.7D, lambda = 0.1, epsilon = 1e-4)
+    val objectiveTrack = new ObjectiveTrackReal[String](maxRating = 0.7D, lambda = 0.1, epsilon = 1e-4)
 
     val objective = objectiveTrack.calcOne(iteraction)
 
@@ -97,7 +97,7 @@ class ObjectiveTrackTest {
         DenseVector(0.02, 0.02, 0.01, 0.03,  0.02, 0.03, 0.05, 0.03, 0.02,  0.01),
         DenseVector(0.02, 0.01, 0.08, 0.03,  0.01, 0.06, 0.02, 0.031, 0.021,  0.02)))
 
-    val objectiveTrack = new ObjectiveTrack[String](maxRating = 0.8D, lambda = 0.1, epsilon = 1e-4)
+    val objectiveTrack = new ObjectiveTrackReal[String](maxRating = 0.8D, lambda = 0.1, epsilon = 1e-4)
 
     val objective = objectiveTrack.calcOne(iteraction)
 

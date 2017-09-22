@@ -44,10 +44,6 @@ class XCLiMFModelTest {
     val model = new XCLiMFModel(userFactors, itemFactors)
     val result = model.recommend(2, 2).collect().toMap
 
-    model.recommend(2, 2).collect().foreach {
-      case (k,v) => println(k + " => " + v.toList)
-    }
-
     val expected = Map(
       "u4" -> List(("i3", 0.68), ("i2", 0.50)),
       "u2" -> List(("i2", 1.13), ("i3", 0.91)),
