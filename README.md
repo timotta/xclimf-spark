@@ -3,7 +3,7 @@ Spark xCLiMF
 
 Spark implementation of the Extended Collaborative Less-isMore Filtering based
 in the [python xCLiMF implementation](https://github.com/timotta/xclimf). xCLiMF 
-is matrix factorization algorithm to optimize recommendation ranked lists. 
+is a matrix factorization algorithm to optimize recommendation ranked lists. 
 
 ## Using
 
