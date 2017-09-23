@@ -28,7 +28,7 @@ object XCLiMFModelTest {
 class XCLiMFModelTest {
 
   @Test
-  def recommendBlockSize(): Unit = {
+  def recommendByCartesian(): Unit = {
     val userFactors = XCLiMFModelTest.spark.sparkContext.parallelize(Seq(
       ("u1", DenseMatrix(DenseVector(0.1, 0.2, 0.6, 1.0))),
       ("u2", DenseMatrix(DenseVector(0.9, 0.4, 0.2, 0.3))),
@@ -61,7 +61,7 @@ class XCLiMFModelTest {
   }
 
   @Test
-  def recommend(): Unit = {
+  def recommendByBroadcast(): Unit = {
     val userFactors = XCLiMFModelTest.spark.sparkContext.parallelize(Seq(
       ("u1", DenseMatrix(DenseVector(0.1, 0.2, 0.6, 1.0))),
       ("u2", DenseMatrix(DenseVector(0.9, 0.4, 0.2, 0.3))),
@@ -75,7 +75,7 @@ class XCLiMFModelTest {
       ("i4", DenseMatrix(DenseVector(0.4, 0.2, 0.1, 0.9)))))
 
     val model = new XCLiMFModel(userFactors, itemFactors)
-    val result = model.recommend(2).collect().toMap
+    val result = model.recommend(2, 10).collect().toMap
 
     val expected = Map(
       "u4" -> List(("i3", 0.68), ("i2", 0.50)),

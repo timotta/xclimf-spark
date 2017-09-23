@@ -15,7 +15,7 @@ object XCLiMFModel {
   }
 }
 
-class XCLiMFModel[T: ClassTag](user: Factors.Factors[T], item: Factors.Factors[T]) {
+class XCLiMFModel[T: ClassTag](user: Factors.Factors[T], item: Factors.Factors[T]) extends Serializable {
   private var userFactors = user
   private var itemFactors = item
 
@@ -42,29 +42,56 @@ class XCLiMFModel[T: ClassTag](user: Factors.Factors[T], item: Factors.Factors[T
    * @blockSize: Performance parameter to represent number of user and items per partitions
    */
   def recommend(topK: Int, ignoringByUser: RDD[(T, Set[T])], blockSize: Int = 4096): RDD[(T, Array[(T, Double)])] = {
-    val usersFactors = blockify(getUserFactors().leftOuterJoin(ignoringByUser), blockSize)
-    val itemsFactors = blockify(getItemFactors(), blockSize)
-    usersFactors.cartesian(itemsFactors).flatMap {
+    val toRecommend = if (itemFactors.count() < blockSize) {
+      recommendByBroadcast(topK, ignoringByUser)
+    } else {
+      recommendByCartesian(topK, ignoringByUser, blockSize)
+    }
+
+    toRecommend.topByKey(topK)(Ordering.by(_._2))
+  }
+
+  private def recommendByBroadcast(topK: Int, ignoringByUser: RDD[(T, Set[T])]): RDD[(T, (T, Double))] = {
+    val users = userFactors.leftOuterJoin(ignoringByUser, userFactors.partitions.size)
+    val broadcast = itemFactors.sparkContext.broadcast(itemFactors.collect())
+    val toRecommend = users.flatMap {
+      case (user, (userFactors, ignore)) =>
+        val items = broadcast.value
+        recommendOneUser(topK, user, userFactors, items, ignore)
+    }
+    broadcast.unpersist()
+    toRecommend
+  }
+
+  private def recommendByCartesian(topK: Int, ignoringByUser: RDD[(T, Set[T])], blockSize: Int = 4096): RDD[(T, (T, Double))] = {
+    val usersBlocks = blockify(userFactors.leftOuterJoin(ignoringByUser, userFactors.partitions.size), blockSize)
+    val itemsBlocks = blockify(itemFactors, blockSize)
+    val cartesian = usersBlocks.cartesian(itemsBlocks)
+
+    cartesian.flatMap {
       case (users, items) =>
         users.flatMap {
           case (user, (userFactors, ignore)) =>
-            val ranking = new BoundedPriorityQueue[(T, Double)](topK)(Ordering.by(_._2))
-            items.filter {
-              case (item, _) => ignore match {
-                case Some(ig) => !ig.contains(item)
-                case None => true
-              }
-            }.foreach {
-              case (item, itemFactors) =>
-                val r = (item, userFactors.toDenseVector.dot(itemFactors.toDenseVector))
-                ranking += r
-            }
-            ranking.map {
-              case (i, v) =>
-                (user, (i, v))
-            }
+            recommendOneUser(topK, user, userFactors, items, ignore)
         }
-    }.topByKey(topK)(Ordering.by(_._2))
+    }
+  }
+
+  private def recommendOneUser(topK: Int, user: T, userFactors: DenseMatrix[Double],
+    items: Iterable[(T, DenseMatrix[Double])], ignore: Option[Set[T]]) = {
+    val ranking = new BoundedPriorityQueue[(T, (T, Double))](topK)(Ordering.by(_._2._2))
+    items.filter {
+      case (item, _) => ignore match {
+        case Some(ig) => !ig.contains(item)
+        case None => true
+      }
+    }.foreach {
+      case (item, itemFactors) =>
+        val score = userFactors.toDenseVector.dot(itemFactors.toDenseVector)
+        val r = (user, (item, score))
+        ranking += r
+    }
+    ranking
   }
 
   /**
