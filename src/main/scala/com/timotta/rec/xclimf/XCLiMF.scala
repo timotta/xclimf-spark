@@ -40,7 +40,8 @@ class XCLiMF[T: ClassTag](
     val validRatings = Rating.prepare(ratings, ignoreTopK)
     val users = Rating.topKByUser(validRatings, topK)
     val model = XCLiMFModel[T](users, dims)
-    val ratingsByItems = Rating.flatByItems(users).persist(StorageLevels.MEMORY_AND_DISK)
+    val ratingsByItems = forceCache(Rating.flatByItems(users))
+
     val numPartitions = users.partitions.size
 
     val objective = ObjectiveTrack[T](objectiveValidate, validRatings, lambda, epsilon)
@@ -62,6 +63,12 @@ class XCLiMF[T: ClassTag](
     ratingsByItems.unpersist()
 
     model
+  }
+
+  private def forceCache[T](rdd: RDD[T]): RDD[T] = {
+    val r = rdd.cache()
+    log.info("forcing cache of " + r.count() + " items")
+    r
   }
 
   private def update(iteractions: Iteractions.Iteractions[T]) = {
