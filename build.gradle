@@ -95,7 +95,7 @@ if (project.hasProperty('release')) {
                         description "Extended Collaborative Less Is More Filtering for Spark"
                         packaging 'jar'
                         url 'https://github.com/timotta/xclimf-spark'
-                        version '0.0.1'
+                        version '0.0.2'
                         groupId 'com.timotta'
 
                         scm {
