@@ -11,7 +11,8 @@ class PyXCLiMF(maxIters: Int = 25,
   lambda: Double = 0.001f,
   topK: Int = 5,
   ignoreTopK: Int = 3,
-  epsilon: Double = 1e-4f) extends XCLiMF[String](maxIters, dims, gamma, lambda, topK, ignoreTopK, epsilon) {
+  epsilon: Double = 1e-4f,
+  objectiveValidate: Boolean = true) extends XCLiMF[String](maxIters, dims, gamma, lambda, topK, ignoreTopK, epsilon, objectiveValidate) {
 
   def fit(jrdd: JavaRDD[Map[String, Object]]): PyXCLiMFModel = {
     val rdd = jrdd.rdd.map { m =>
