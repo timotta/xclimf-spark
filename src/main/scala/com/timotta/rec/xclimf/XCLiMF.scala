@@ -12,7 +12,6 @@ import ScalarMatrixOps._
 import com.timotta.rec.xclimf.Iteractions.Iteraction
 import scala.util.control.Breaks._
 import org.apache.log4j.LogManager
-import org.apache.spark.api.java.StorageLevels
 
 /**
  * @maxIters: Max number of iteractions to optimize
@@ -40,7 +39,7 @@ class XCLiMF[T: ClassTag](
     val validRatings = Rating.prepare(ratings, ignoreTopK)
     val users = Rating.topKByUser(validRatings, topK)
     val model = XCLiMFModel[T](users, dims)
-    val ratingsByItems = forceCache(Rating.flatByItems(users))
+    val ratingsByItems = Rating.flatByItems(users).cache()
 
     val numPartitions = users.partitions.size
 
@@ -60,15 +59,7 @@ class XCLiMF[T: ClassTag](
       }
     }
 
-    ratingsByItems.unpersist()
-
     model
-  }
-
-  private def forceCache[T](rdd: RDD[T]): RDD[T] = {
-    val r = rdd.cache()
-    log.info("forcing cache of " + r.count() + " items")
-    r
   }
 
   private def update(iteractions: Iteractions.Iteractions[T]) = {
