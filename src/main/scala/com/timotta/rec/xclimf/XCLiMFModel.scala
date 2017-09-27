@@ -80,17 +80,19 @@ class XCLiMFModel[T: ClassTag](user: Factors.Factors[T], item: Factors.Factors[T
   private def recommendOneUser(topK: Int, user: T, userFactors: DenseMatrix[Double],
     items: Iterable[(T, DenseMatrix[Double])], ignore: Option[Set[T]]) = {
     val ranking = new BoundedPriorityQueue[(T, (T, Double))](topK)(Ordering.by(_._2._2))
-    items.filter {
-      case (item, _) => ignore match {
-        case Some(ig) => !ig.contains(item)
-        case None => true
-      }
-    }.foreach {
+
+    val itemsFiltered = ignore match {
+      case Some(ig) => items.filter { case (item, _) => !ig.contains(item) }
+      case None => items
+    }
+
+    itemsFiltered.foreach {
       case (item, itemFactors) =>
         val score = userFactors.toDenseVector.dot(itemFactors.toDenseVector)
         val r = (user, (item, score))
         ranking += r
     }
+
     ranking
   }
 
