@@ -49,7 +49,7 @@ class XCLiMF[T: ClassTag](
       for (i <- 1 to maxIters) {
         val iteraction = Iteractions.prepare(ratingsByItems, numPartitions, model)
         if (objective.update(iteraction, model)) {
-          log.info("doing iteraction=" + i + ": " + objective)
+          objective.logObjective(i)
           val updated = update(iteraction)
           model.update(updated)
         } else {

@@ -11,10 +11,12 @@ import breeze.linalg.Axis
 import scala.util.Random
 import scala.reflect.ClassTag
 import org.apache.spark.rdd.RDD
+import org.apache.log4j.LogManager
 
 trait ObjectiveTrack[T] {
   def update(iteractions: Iteractions.Iteractions[T], U: Factors.Factors[T], V: Factors.Factors[T]): Boolean
   def update(iteractions: Iteractions.Iteractions[T], model: XCLiMFModel[T]): Boolean
+  def logObjective(iteraction: Int): Unit
 }
 
 object ObjectiveTrack {
@@ -31,8 +33,11 @@ object ObjectiveTrack {
 class ObjectiveTrackReal[T: ClassTag](val maxRating: Double, val lambda: Double, val epsilon: Double)
   extends Serializable with ObjectiveTrack[T] {
 
-  var biggerObjective = Double.NegativeInfinity
-  var lastObjective = Double.NegativeInfinity
+  protected[xclimf] var biggerObjective = Double.NegativeInfinity
+  protected[xclimf] var lastObjective = Double.NegativeInfinity
+  protected[xclimf] var uCount = -1L
+
+  @transient private val logger = LogManager.getLogger(getClass)
 
   override def update(iteractions: Iteractions.Iteractions[T], U: Factors.Factors[T], V: Factors.Factors[T]): Boolean = {
     val actualObjective = calcAll(iteractions, U, V)
@@ -53,7 +58,14 @@ class ObjectiveTrackReal[T: ClassTag](val maxRating: Double, val lambda: Double,
     val errors = iteractions.map {
       case (user, iteraction) => calcOne(iteraction)
     }.sum()
-    (errors + regularization(U, V)) / U.count()
+    (errors + regularization(U, V)) / getUCount(U)
+  }
+
+  private def getUCount(U: Factors.Factors[T]): Long = {
+    if (uCount == -1L) {
+      uCount = U.count()
+    }
+    uCount
   }
 
   protected[xclimf] def calcOne(iteraction: Iteractions.Iteraction[T]): Double = {
@@ -80,10 +92,6 @@ class ObjectiveTrackReal[T: ClassTag](val maxRating: Double, val lambda: Double,
     rmi.toDenseVector.dot(obj.toDenseVector)
   }
 
-  override def toString(): String = {
-    "ObjectiveTrackReal(last=" + lastObjective + ")"
-  }
-
   private def relevanceProbability(r: DenseMatrix[Double], maxi: Double): DenseMatrix[Double] = {
     div(dif(power(2, r), 1), pow(2, maxi))
   }
@@ -92,6 +100,14 @@ class ObjectiveTrackReal[T: ClassTag](val maxRating: Double, val lambda: Double,
     val sumV2 = V.map { case (_, f) => sum(pow(f, 2)) }.sum()
     val sumU2 = U.map { case (_, f) => sum(pow(f, 2)) }.sum()
     -0.5 * lambda * (sumV2 + sumU2)
+  }
+
+  override def toString(): String = {
+    "ObjectiveTrackReal(last=" + lastObjective + ")"
+  }
+
+  override def logObjective(iteraction: Int): Unit = {
+    logger.info("doing iteraction=" + iteraction + ": " + lastObjective)
   }
 }
 
@@ -102,7 +118,6 @@ class ObjectiveTrackNull[T: ClassTag]() extends Serializable with ObjectiveTrack
   def update(iteractions: Iteractions.Iteractions[T], model: XCLiMFModel[T]): Boolean = {
     true
   }
-  override def toString(): String = {
-    "ObjectiveTrackNull()"
+  override def logObjective(iteraction: Int): Unit = {
   }
 }
