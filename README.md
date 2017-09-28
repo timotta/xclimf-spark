@@ -14,7 +14,7 @@ Example: [Main.scala](https://github.com/timotta/xclimf-spark/blob/master/src/ma
 Using gradle:
 
 ```
-compile 'com.timotta:xclimf-spark:0.0.4'
+compile 'com.timotta:xclimf-spark:0.0.5'
 ```
 
 Using maven:
@@ -23,7 +23,7 @@ Using maven:
 <dependency>
   <groupId>com.timotta</groupId>
   <artifactId>xclimf-spark</artifactId>
-  <version>0.0.1</version>
+  <version>0.0.5</version>
 </dependency>
 ```
 
