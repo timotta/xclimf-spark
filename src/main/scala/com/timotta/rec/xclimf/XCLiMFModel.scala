@@ -37,23 +37,37 @@ class XCLiMFModel[T: ClassTag](user: Factors.Factors[T], item: Factors.Factors[T
   }
 
   /**
-   * @topK: number of items to return
+   * @topK: Number of items to return
+   * @itemsFilter: Only recommend items in this RDD
    * @ignoringByUser: Tuple RDD of items to not recommend for each user _1 = user, _2 = items
    * @blockSize: Performance parameter to represent number of user and items per partitions
    */
-  def recommend(topK: Int, ignoringByUser: RDD[(T, Set[T])], blockSize: Int = 4096): RDD[(T, Array[(T, Double)])] = {
-    val toRecommend = if (itemFactors.count() < blockSize) {
-      recommendByBroadcast(topK, ignoringByUser)
+  def recommend(topK: Int, itemsFilter: Option[RDD[T]],
+    ignoringByUser: RDD[(T, Set[T])], blockSize: Int = 4096): RDD[(T, Array[(T, Double)])] = {
+
+    val itemsFactorsToRecommend = filterItemsToRecommend(itemsFilter)
+
+    val toRecommend = if (itemsFactorsToRecommend.count() < blockSize) {
+      recommendByBroadcast(topK, ignoringByUser, itemsFactorsToRecommend)
     } else {
-      recommendByCartesian(topK, ignoringByUser, blockSize)
+      recommendByCartesian(topK, ignoringByUser, itemsFactorsToRecommend, blockSize)
     }
 
     toRecommend.topByKey(topK)(Ordering.by(_._2))
   }
 
-  private def recommendByBroadcast(topK: Int, ignoringByUser: RDD[(T, Set[T])]): RDD[(T, (T, Double))] = {
+  private def filterItemsToRecommend(itemsFilter: Option[RDD[T]]): Factors.Factors[T] = {
+    itemsFilter match {
+      case Some(rdd) => itemFactors.join(rdd.distinct().map((_, true))).map { case (a, (b, _)) => (a, b) }
+      case None => itemFactors
+    }
+  }
+
+  private def recommendByBroadcast(topK: Int, ignoringByUser: RDD[(T, Set[T])],
+    itemsFactorsToRecommend: Factors.Factors[T]): RDD[(T, (T, Double))] = {
+
     val users = userFactors.leftOuterJoin(ignoringByUser, userFactors.partitions.size)
-    val broadcast = itemFactors.sparkContext.broadcast(itemFactors.collect())
+    val broadcast = itemsFactorsToRecommend.sparkContext.broadcast(itemsFactorsToRecommend.collect())
     val toRecommend = users.flatMap {
       case (user, (userFactors, ignore)) =>
         val items = broadcast.value
@@ -63,9 +77,10 @@ class XCLiMFModel[T: ClassTag](user: Factors.Factors[T], item: Factors.Factors[T
     toRecommend
   }
 
-  private def recommendByCartesian(topK: Int, ignoringByUser: RDD[(T, Set[T])], blockSize: Int = 4096): RDD[(T, (T, Double))] = {
+  private def recommendByCartesian(topK: Int, ignoringByUser: RDD[(T, Set[T])],
+    itemsFactorsToRecommend: Factors.Factors[T], blockSize: Int = 4096): RDD[(T, (T, Double))] = {
     val usersBlocks = blockify(userFactors.leftOuterJoin(ignoringByUser, userFactors.partitions.size), blockSize)
-    val itemsBlocks = blockify(itemFactors, blockSize)
+    val itemsBlocks = blockify(itemsFactorsToRecommend, blockSize)
     val cartesian = usersBlocks.cartesian(itemsBlocks)
 
     cartesian.flatMap {
@@ -97,7 +112,7 @@ class XCLiMFModel[T: ClassTag](user: Factors.Factors[T], item: Factors.Factors[T
   }
 
   /**
-   * @topK: number of items to return
+   * @topK: Number of items to return
    */
   def recommend(topK: Int): RDD[(T, Array[(T, Double)])] = {
     val empty = getUserFactors().sparkContext.emptyRDD[(T, Set[T])]
@@ -105,7 +120,16 @@ class XCLiMFModel[T: ClassTag](user: Factors.Factors[T], item: Factors.Factors[T
   }
 
   /**
-   * @topK: number of items to return
+   * @topK: Number of items to return
+   * @itemsFilter: Only recommend items in this RDD
+   */
+  def recommend(topK: Int, itemsFilter: Option[RDD[T]]): RDD[(T, Array[(T, Double)])] = {
+    val empty = getUserFactors().sparkContext.emptyRDD[(T, Set[T])]
+    recommend(topK, itemsFilter, empty)
+  }
+
+  /**
+   * @topK: Number of items to return
    * @blockSize: Performance parameter to represent number of user and items per partitions
    */
   def recommend(topK: Int, blockSize: Int): RDD[(T, Array[(T, Double)])] = {
@@ -113,4 +137,20 @@ class XCLiMFModel[T: ClassTag](user: Factors.Factors[T], item: Factors.Factors[T
     recommend(topK, empty, blockSize)
   }
 
+  /**
+   * @topK: Number of items to return
+   * @ignoringByUser: Tuple RDD of items to not recommend for each user _1 = user, _2 = items
+   * @blockSize: Performance parameter to represent number of user and items per partitions
+   */
+  def recommend(topK: Int, ignoringByUser: RDD[(T, Set[T])], blockSize: Int): RDD[(T, Array[(T, Double)])] = {
+    recommend(topK, None, ignoringByUser, blockSize)
+  }
+
+  /**
+   * @topK: Number of items to return
+   * @ignoringByUser: Tuple RDD of items to not recommend for each user _1 = user, _2 = items
+   */
+  def recommend(topK: Int, ignoringByUser: RDD[(T, Set[T])]): RDD[(T, Array[(T, Double)])] = {
+    recommend(topK, None, ignoringByUser)
+  }
 }

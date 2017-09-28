@@ -130,4 +130,39 @@ class XCLiMFModelTest {
     }
   }
 
+  @Test
+  def recommendFiltering(): Unit = {
+    val userFactors = XCLiMFModelTest.spark.sparkContext.parallelize(Seq(
+      ("u1", DenseMatrix(DenseVector(0.1, 0.2, 0.6, 1.0))),
+      ("u2", DenseMatrix(DenseVector(0.9, 0.4, 0.2, 0.3))),
+      ("u3", DenseMatrix(DenseVector(0.4, 0.8, 0.5, 0.4))),
+      ("u4", DenseMatrix(DenseVector(0.4, 0.1, 0.8, 0.1)))))
+
+    val itemFactors = XCLiMFModelTest.spark.sparkContext.parallelize(Seq(
+      ("i1", DenseMatrix(DenseVector(0.5, 0.2, 0.3, 0.2))),
+      ("i2", DenseMatrix(DenseVector(0.8, 0.9, 0.1, 0.1))),
+      ("i3", DenseMatrix(DenseVector(0.4, 0.9, 0.5, 0.3))),
+      ("i4", DenseMatrix(DenseVector(0.4, 0.2, 0.1, 0.9)))))
+
+    val itemFilter = XCLiMFModelTest.spark.sparkContext.parallelize(Seq("i2", "i4", "i1"))
+
+    val model = new XCLiMFModel(userFactors, itemFactors)
+    val result = model.recommend(2, Some(itemFilter)).collect().toMap
+
+    val expected = Map(
+      "u4" -> List(("i2", 0.50), ("i1", 0.48)),
+      "u2" -> List(("i2", 1.13), ("i4", 0.73)),
+      "u3" -> List(("i2", 1.13), ("i4", 0.73)),
+      "u1" -> List(("i4", 1.04), ("i1", 0.47)))
+
+    expected.foreach {
+      case (k, v) =>
+        Assert.assertEquals(2, v.size)
+        0.until(2).foreach { i =>
+          Assert.assertEquals(v(i)._1, result(k)(i)._1)
+          Assert.assertEquals(v(i)._2, result(k)(i)._2, 0.01)
+        }
+    }
+  }
+
 }
